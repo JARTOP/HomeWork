@@ -1,0 +1,132 @@
+using System;
+using System.Linq;
+
+public abstract class Character
+{
+    public string Name { get; set; }
+    public int HealthPoints { get; set; }
+    public int DamagePoints { get; set; }
+    public int ArmorPercentage { get; set; } 
+    public string Weapon { get; set; }
+    public bool IsAlive => HealthPoints > 0;
+
+    private Random random = new Random();
+
+    public void Attack(Character target)
+    {
+        if (!IsAlive || !target.IsAlive) return;
+
+        int rawDamage = random.Next(DamagePoints / 2, DamagePoints + 1);
+        int damageAfterArmor = rawDamage - (rawDamage * target.ArmorPercentage / 100);
+        damageAfterArmor = Math.Max(1, damageAfterArmor); 
+
+        target.HealthPoints -= damageAfterArmor;
+
+        Console.WriteLine($"{Name} атакует {target.Name} с помощью {Weapon} и наносит {damageAfterArmor} урона!");
+        Console.WriteLine($"У {target.Name} осталось {target.HealthPoints} здоровья.");
+        
+        if (!target.IsAlive)
+        {
+            Console.WriteLine($"{target.Name} повержен!");
+        }
+    }
+}
+
+public class Elf : Character { }
+public class Dwarf : Character { }
+public class Orc : Character { }
+public class Troll : Character { }
+public class Human : Character { }
+
+public static class Battle
+{
+    private static Random rng = new Random();
+
+    public static void StartBattle(params Character[] participants)
+    {
+        Console.WriteLine("Масштабная битва начинается!");
+        foreach (var p in participants)
+        {
+            Console.WriteLine($"- {p.Name}");
+        }
+        Console.WriteLine("----------------------");
+
+        while (participants.Count(p => p.IsAlive) > 1)
+        {
+
+            var aliveParticipants = participants.Where(p => p.IsAlive).ToList();
+            var attacker = aliveParticipants[rng.Next(aliveParticipants.Count)];
+
+
+            var possibleTargets = aliveParticipants.Where(t => t != attacker).ToList();
+            var target = possibleTargets[rng.Next(possibleTargets.Count)];
+
+            attacker.Attack(target);
+            Console.WriteLine("----------------------");
+        }
+
+        var winner = participants.FirstOrDefault(p => p.IsAlive);
+        if (winner != null)
+        {
+            Console.WriteLine($" Победитель: {winner.Name}! ");
+        }
+        else
+        {
+            Console.WriteLine("Все пали. Ничья.");
+        }
+    }
+}
+
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        Elf elf = new Elf()
+        {
+            Name = "Эльф",
+            HealthPoints = 10,
+            DamagePoints = 10,
+            ArmorPercentage = 20,
+            Weapon = "Лук"
+        };
+
+        Orc orc = new Orc()
+        {
+            Name = "Орк",
+            HealthPoints = 40,
+            DamagePoints = 30,
+            ArmorPercentage = 60,
+            Weapon = "Двуручный топор"
+        };
+
+        Dwarf dwarf = new Dwarf()
+        {
+            Name = "Дварф",
+            HealthPoints = 25,
+            DamagePoints = 15,
+            ArmorPercentage = 40,
+            Weapon = "Топор"
+        };
+
+        Troll troll = new Troll()
+        {
+            Name = "Тролль",
+            HealthPoints = 30,
+            DamagePoints = 20,
+            ArmorPercentage = 50,
+            Weapon = "Молот"
+        };
+
+        Human human = new Human()
+        {
+            Name = "Человек",
+            HealthPoints = 35,
+            DamagePoints = 25,
+            ArmorPercentage = 55,
+            Weapon = "Меч"
+        };
+
+
+        Battle.StartBattle(elf, orc, dwarf, troll, human);
+    }
+}
