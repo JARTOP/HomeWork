@@ -3,40 +3,154 @@ using System.Linq;
 
 public abstract class Character
 {
-    public string Name { get; set; }
+    public string? Name { get; set; }
     public int HealthPoints { get; set; }
     public int DamagePoints { get; set; }
-    public int ArmorPercentage { get; set; } 
-    public string Weapon { get; set; }
+    public int ArmorPercentage { get; set; }
+    public string? Weapon { get; set; }
+    public int ManaPoints { get; set; }
+    public bool IsStunned { get; set; }
+
+    public int AbilityCooldown { get; protected set; }
+    public int CurrentCooldown { get; set; }
+
     public bool IsAlive => HealthPoints > 0;
+    protected static Random random = new Random();
 
-    private Random random = new Random();
-
-    public void Attack(Character target)
+    public virtual void UseAbility(Character target)
     {
-        if (!IsAlive || !target.IsAlive) return;
+        Attack(target);
+    }
 
+    public virtual void Attack(Character target)
+    {
         int rawDamage = random.Next(DamagePoints / 2, DamagePoints + 1);
         int damageAfterArmor = rawDamage - (rawDamage * target.ArmorPercentage / 100);
-        damageAfterArmor = Math.Max(1, damageAfterArmor); 
+        damageAfterArmor = Math.Max(1, damageAfterArmor);
 
         target.HealthPoints -= damageAfterArmor;
 
-        Console.WriteLine($"{Name} атакует {target.Name} с помощью {Weapon} и наносит {damageAfterArmor} урона!");
-        Console.WriteLine($"У {target.Name} осталось {target.HealthPoints} здоровья.");
-        
-        if (!target.IsAlive)
+        Console.WriteLine($"{Name} атакует {target.Name} и наносит {damageAfterArmor} урона.");
+    }
+
+    public void ReduceCooldown()
+    {
+        if (CurrentCooldown > 0)
+            CurrentCooldown--;
+    }
+}
+
+public class Elf : Character
+{
+    public Elf() { AbilityCooldown = 2; }
+
+    public override void UseAbility(Character target)
+    {
+        if (ManaPoints >= 10 && CurrentCooldown == 0)
         {
-            Console.WriteLine($"{target.Name} повержен!");
+            ManaPoints -= 10;
+            CurrentCooldown = AbilityCooldown;
+
+            Console.WriteLine($"{Name} использует Двойной выстрел!");
+            Attack(target);
+            if (target.IsAlive) Attack(target);
+        }
+        else Attack(target);
+    }
+}
+
+public class Orc : Character
+{
+    public Orc() { AbilityCooldown = 3; }
+
+    public override void UseAbility(Character target)
+    {
+        if (ManaPoints >= 15 && CurrentCooldown == 0 && target.HealthPoints < 20)
+        {
+            ManaPoints -= 15;
+            CurrentCooldown = AbilityCooldown;
+
+            int damage = DamagePoints * 2;
+            target.HealthPoints -= damage;
+
+            Console.WriteLine($"{Name} использует Добивание и наносит {damage} урона!");
+        }
+        else Attack(target);
+    }
+}
+    
+public class Dwarf : Character
+{
+    public Dwarf()
+    {
+        AbilityCooldown = 3;
+    }
+
+    public override void UseAbility(Character target)
+    {
+        if (ManaPoints >= 10 && CurrentCooldown == 0)
+        {
+            ManaPoints -= 10;
+            CurrentCooldown = AbilityCooldown;
+            ArmorPercentage += 15;
+
+            Console.WriteLine($"{Name} использует Каменную кожу! Броня увеличена.");
+        }
+        else
+        {
+            Attack(target);
         }
     }
 }
 
-public class Elf : Character { }
-public class Dwarf : Character { }
-public class Orc : Character { }
-public class Troll : Character { }
-public class Human : Character { }
+public class Troll : Character
+{
+    public Troll()
+    {
+        AbilityCooldown = 4;
+    }
+
+    public override void UseAbility(Character target)
+    {
+        if (ManaPoints >= 12 && CurrentCooldown == 0)
+        {
+            ManaPoints -= 12;
+            CurrentCooldown = AbilityCooldown;
+            target.IsStunned = true;
+
+            Console.WriteLine($"{Name} оглушает {target.Name}! ");
+        }
+        else
+        {
+            Attack(target);
+        }
+    }
+}
+
+public class Human : Character
+{
+    public Human()
+    {
+        AbilityCooldown = 2;
+    }
+
+    public override void UseAbility(Character target)
+    {
+        if (ManaPoints >= 8 && CurrentCooldown == 0)
+        {
+            ManaPoints -= 8;
+            CurrentCooldown = AbilityCooldown;
+            DamagePoints += 5;
+
+            Console.WriteLine($"{Name} использует Боевой клич! Урон повышен.");
+        }
+        else
+        {
+            Attack(target);
+        }
+    }
+}
+
 
 public static class Battle
 {
@@ -44,36 +158,66 @@ public static class Battle
 
     public static void StartBattle(params Character[] participants)
     {
-        Console.WriteLine("Масштабная битва начинается!");
-        foreach (var p in participants)
-        {
-            Console.WriteLine($"- {p.Name}");
-        }
-        Console.WriteLine("----------------------");
+        Console.WriteLine("Массовая битва начинается!\n");
+
+        int round = 1;
 
         while (participants.Count(p => p.IsAlive) > 1)
         {
+            Console.WriteLine($"\n=== Раунд {round} ===");
 
             var aliveParticipants = participants.Where(p => p.IsAlive).ToList();
-            var attacker = aliveParticipants[rng.Next(aliveParticipants.Count)];
 
+            foreach (var attacker in aliveParticipants)
+            {
+                if (!attacker.IsAlive)
+                    continue;
 
-            var possibleTargets = aliveParticipants.Where(t => t != attacker).ToList();
-            var target = possibleTargets[rng.Next(possibleTargets.Count)];
+                var possibleTargets = participants
+                    .Where(p => p.IsAlive && p != attacker)
+                    .ToList();
 
-            attacker.Attack(target);
-            Console.WriteLine("----------------------");
+                if (!possibleTargets.Any())
+                    break;
+
+                var target = possibleTargets[rng.Next(possibleTargets.Count)];
+
+                if (attacker.IsStunned)
+                {
+                    Console.WriteLine($"{attacker.Name} оглушён и пропускает ход!");
+                    attacker.IsStunned = false;
+                    attacker.ReduceCooldown();
+                    continue;
+                }
+
+                if (rng.Next(100) < 35)
+                    attacker.UseAbility(target);
+                else
+                    attacker.Attack(target);
+
+                attacker.ReduceCooldown();
+
+                Console.WriteLine($"{attacker.Name}: HP={attacker.HealthPoints}, Mana={attacker.ManaPoints}, CD={attacker.CurrentCooldown}");
+                Console.WriteLine($"{target.Name}: HP={Math.Max(0, target.HealthPoints)}");
+
+                if (!target.IsAlive)
+                    Console.WriteLine($"{target.Name} погибает!");
+
+                Console.WriteLine("----------------------");
+
+                if (participants.Count(p => p.IsAlive) <= 1)
+                    break;
+            }
+
+            round++;
         }
 
         var winner = participants.FirstOrDefault(p => p.IsAlive);
+
         if (winner != null)
-        {
-            Console.WriteLine($" Победитель: {winner.Name}! ");
-        }
+            Console.WriteLine($"\n Победитель: {winner.Name}!");
         else
-        {
-            Console.WriteLine("Все пали. Ничья.");
-        }
+            Console.WriteLine("Все погибли!");
     }
 }
 
@@ -81,49 +225,54 @@ public class Program
 {
     public static void Main(string[] args)
     {
-        Elf elf = new Elf()
+        Elf elf = new Elf
         {
             Name = "Эльф",
-            HealthPoints = 10,
-            DamagePoints = 10,
+            HealthPoints = 35,
+            DamagePoints = 12,
             ArmorPercentage = 20,
-            Weapon = "Лук"
+            Weapon = "Лук",
+            ManaPoints = 30
         };
 
-        Orc orc = new Orc()
+        Orc orc = new Orc
         {
             Name = "Орк",
-            HealthPoints = 40,
-            DamagePoints = 30,
-            ArmorPercentage = 60,
-            Weapon = "Двуручный топор"
-        };
-
-        Dwarf dwarf = new Dwarf()
-        {
-            Name = "Дварф",
-            HealthPoints = 25,
+            HealthPoints = 50,
             DamagePoints = 15,
+            ArmorPercentage = 30,
+            Weapon = "Топор",
+            ManaPoints = 25
+        };
+        
+        Dwarf dwarf = new Dwarf
+        {
+            Name = "Гном",
+            HealthPoints = 45,
+            DamagePoints = 10,
             ArmorPercentage = 40,
-            Weapon = "Топор"
+            Weapon = "Молот",
+            ManaPoints = 20
         };
 
-        Troll troll = new Troll()
+        Troll troll = new Troll
         {
             Name = "Тролль",
-            HealthPoints = 30,
-            DamagePoints = 20,
-            ArmorPercentage = 50,
-            Weapon = "Молот"
+            HealthPoints = 60,
+            DamagePoints = 14,
+            ArmorPercentage = 25,
+            Weapon = "Дубина",
+            ManaPoints = 20
         };
 
-        Human human = new Human()
+        Human human = new Human
         {
             Name = "Человек",
-            HealthPoints = 35,
-            DamagePoints = 25,
-            ArmorPercentage = 55,
-            Weapon = "Меч"
+            HealthPoints = 40,
+            DamagePoints = 13,
+            ArmorPercentage = 25,
+            Weapon = "Меч",
+            ManaPoints = 25
         };
 
 
