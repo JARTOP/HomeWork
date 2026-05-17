@@ -1,0 +1,216 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace GenericTasks
+{
+    // =========================================================
+    // 1. PriorityQueue<T>
+    // =========================================================
+
+    public class PriorityQueue<T>
+    {
+        private readonly Func<T, int> _prioritySelector;
+
+        private readonly SortedDictionary<int, Queue<T>> _storage =
+            new SortedDictionary<int, Queue<T>>(
+                Comparer<int>.Create((a, b) => b.CompareTo(a))
+            );
+
+        public PriorityQueue(Func<T, int> prioritySelector)
+        {
+            _prioritySelector = prioritySelector;
+        }
+
+        public void Enqueue(T item)
+        {
+            int priority = _prioritySelector(item);
+
+            if (!_storage.ContainsKey(priority))
+            {
+                _storage[priority] = new Queue<T>();
+            }
+
+            _storage[priority].Enqueue(item);
+        }
+
+        public T Dequeue()
+        {
+            if (_storage.Count == 0)
+                throw new InvalidOperationException("Queue is empty");
+
+            var first = _storage.First();
+
+            T item = first.Value.Dequeue();
+
+            if (first.Value.Count == 0)
+            {
+                _storage.Remove(first.Key);
+            }
+
+            return item;
+        }
+
+        public bool IsEmpty => _storage.Count == 0;
+    }
+
+    // =========================================================
+    // 2. Animal hierarchy
+    // =========================================================
+
+    public class Animal
+    {
+        public string Name { get; set; }
+
+        public Animal(string name)
+        {
+            Name = name;
+        }
+
+        public override string ToString()
+        {
+            return $"{GetType().Name}: {Name}";
+        }
+    }
+
+    public class Dog : Animal
+    {
+        public Dog(string name) : base(name) { }
+
+        public void Bark()
+        {
+            Console.WriteLine($"{Name}: Woof!");
+        }
+    }
+
+    public class Cat : Animal
+    {
+        public Cat(string name) : base(name) { }
+
+        public void Meow()
+        {
+            Console.WriteLine($"{Name}: Meow!");
+        }
+    }
+
+    // =========================================================
+    // 3. Generic methods
+    // =========================================================
+
+    public static class GenericUtils
+    {
+        // copyAnimals
+
+        public static void CopyAnimals(
+            IEnumerable<Dog> src,
+            ICollection<Animal> dst)
+        {
+            foreach (var dog in src)
+            {
+                dst.Add(dog);
+            }
+        }
+
+        // fillWithCats
+
+        public static void FillWithCats(ICollection<Animal> dst)
+        {
+            dst.Clear();
+
+            dst.Add(new Cat("Cat1"));
+            dst.Add(new Cat("Cat2"));
+            dst.Add(new Cat("Cat3"));
+        }
+
+        // safeTransfer
+
+        public static void SafeTransfer<T>(
+            IEnumerable<T> src,
+            ICollection<T> dst)
+        {
+            foreach (var item in src)
+            {
+                dst.Add(item);
+            }
+        }
+    }
+
+    // =========================================================
+    // Demo
+    // =========================================================
+
+    class Program
+    {
+        static void Main()
+        {
+            // PriorityQueue demo
+
+            var pq = new PriorityQueue<string>(s => s.Length);
+
+            pq.Enqueue("A");
+            pq.Enqueue("BBBB");
+            pq.Enqueue("CC");
+            pq.Enqueue("DD");
+
+            Console.WriteLine(pq.Dequeue()); // BBBB
+            Console.WriteLine(pq.Dequeue()); // CC
+            Console.WriteLine(pq.Dequeue()); // DD
+            Console.WriteLine(pq.Dequeue()); // A
+
+            // copyAnimals demo
+
+            var dogs = new List<Dog>
+            {
+                new Dog("Rex"),
+                new Dog("Buddy")
+            };
+
+            var animals = new List<Animal>
+            {
+                new Cat("Murka")
+            };
+
+            GenericUtils.CopyAnimals(dogs, animals);
+
+            Console.WriteLine("\nAfter CopyAnimals:");
+
+            foreach (var animal in animals)
+            {
+                Console.WriteLine(animal);
+            }
+
+            // fillWithCats demo
+
+            GenericUtils.FillWithCats(animals);
+
+            Console.WriteLine("\nAfter FillWithCats:");
+
+            foreach (var animal in animals)
+            {
+                Console.WriteLine(animal);
+            }
+
+            // safeTransfer demo
+
+            var moreDogs = new List<Dog>
+            {
+                new Dog("Max"),
+                new Dog("Rocky")
+            };
+
+            var allAnimals = new List<Animal>();
+
+            GenericUtils.SafeTransfer<Animal>(
+                moreDogs,
+                allAnimals
+            );
+
+            Console.WriteLine("\nAfter SafeTransfer:");
+
+            foreach (var animal in allAnimals)
+            {
+                Console.WriteLine(animal);
+            }
+        }
+    }
+}
